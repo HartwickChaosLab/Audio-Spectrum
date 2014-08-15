@@ -7,6 +7,8 @@
 # on windows and linux. Furhtermore U3 should also work.
 # Just change u6s to u3s
 
+# Need to download and install pyaudio found at
+# http://people.csail.mit.edu/hubert/pyaudio/
 # Written by Kevin Schultz
 # 
 
@@ -27,10 +29,10 @@ from pylab import plot, show, title, xlabel, ylabel, subplot
 import scipy as sp
 
 CHUNK = 1024
-FORMAT = pyaudio.paInt16
-CHANNELS = 2
-RATE = 44100
-RECORD_SECONDS = 1
+FORMAT = pyaudio.paFloat32
+SAMPLEFREQ = 44100
+FRAMESIZE = 1024
+NOFFRAMES = 1
 WAVE_OUTPUT_FILENAME = "output.wav"
 
 if sys.platform == 'darwin':
@@ -38,11 +40,8 @@ if sys.platform == 'darwin':
 
 p = pyaudio.PyAudio()
 
-stream = p.open(format=FORMAT,
-                channels=CHANNELS,
-                rate=RATE,
-                input=True,
-                frames_per_buffer=CHUNK)
+stream = p.open(format=FORMAT,channels=1,rate=SAMPLEFREQ,input=True,frames_per_buffer=FRAMESIZE)
+
 # MAX_REQUESTS is the number of packets to be read.
 
 # the number of samples will be MAX_REQUESTS times 48 (packets per request) times 25 (samples per packet).
@@ -58,14 +57,16 @@ d.getCalibrationData()
 d.configIO()
 
 def getData():
-    frames=np.array([],dtype=float)
+    frames = np.array([],dtype=float)
 
-
-    for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-       data = stream.read(CHUNK)
-       frames.append(data)
-       
-    return(frames)
+    stream = p.open(format=FORMAT,channels=1,
+                    rate=SAMPLEFREQ,input=True,
+                    frames_per_buffer=FRAMESIZE)
+    #read from mic make sure that it is default device on system
+    data = stream.read(NOFFRAMES*FRAMESIZE)
+    # convert string to a float 
+    decoded=np.fromstring(data, 'Float32');
+    return(decoded)
     
 # setDAC takes a voltage value, converts to 16 bit value, then puts
 # outputs voltage to channel 0
@@ -129,7 +130,7 @@ numVolts=int(raw_input("Num Volts: "))
 # Get low Frequency (see above comments)
 setDAC(LowV)
 #pause=raw_input("wait")
-start_Freq=getFreq(getData(),SCAN_FREQ)
+start_Freq=getFreq(getData(),SAMPLEFREQ)
 
 print start_Freq
 
@@ -137,7 +138,7 @@ print start_Freq
 setDAC(HighV)
 sleep(1)
 #pause=raw_input("wait")
-end_Freq=getFreq(getData(),SCAN_FREQ)
+end_Freq=getFreq(getData(),SAMPLEFREQ)
 print end_Freq
 
 #take spectrum
@@ -153,3 +154,11 @@ setDAC(0) # return Freq. Gen. to starting value
 #type d.close() into console to get communication to work next time
 # you run. Important on Mac.
 d.close()  
+p.terminate() #releases pyaudio
+print('done')
+
+#Create and save 2d array with freq and spectrum data
+save_data=raw_input("Save (Y/N)")
+if save_data in ("Y","y"):
+    data_out=np.column_stack((freq[:,np.newaxis],spectrum[:,np.newaxis]))
+    np.savetxt('test.out', data_out, delimiter=',')
