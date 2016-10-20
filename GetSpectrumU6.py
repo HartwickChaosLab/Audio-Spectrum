@@ -17,7 +17,7 @@ from datetime import datetime
 import traceback
 import numpy as np
 
-from pylab import plot, show, title, xlabel, ylabel, subplot
+import matplotlib.pyplot as plt
 
 import scipy as sp
 
@@ -114,7 +114,7 @@ def cycleData(lowV, HighV, numV):
 def getFreq(y,Fs):
     #print Fs
     n = len(y) # length of the signal
-    #print n
+    print n
     k = np.arange(n)
 
     T = 1.*n/Fs
@@ -125,16 +125,18 @@ def getFreq(y,Fs):
     
     Y = sp.fft(y)*10. # fft computing and normalization
 
-#plotting just for testing purposes. not strictly neccessary
-    subplot(3,1,1) 
-    plot(k,y)
-    xlabel('Time')
-    ylabel('Amplitude')
-    subplot(3,1,2)
-    plot(frq, 2.0/n * np.abs(Y[0:n/2])) 
     
     return frq[np.argmax(Y[1:n/2])]
+    
+def plotData(freq, power):
+    fig, axes = plt.subplots(1,1)
+    axes.plot(freq, power, label ='Rs')
+    axes.set_xlabel('frequency (Hz)')
+    axes.set_ylabel('rms voltage (V)')
+    axes.legend()
+     
 
+  
 #Bulk of program. Get Low volts, high volts, and number of "frequency
 #steps
 LowV = float(raw_input("Low Volts [0]: "))
@@ -143,7 +145,7 @@ numVolts=int(raw_input("Num Volts: "))
 
 # Get low Frequency (see above comments)
 setDAC(LowV)
-#pause=raw_input("wait")
+pause=raw_input("wait")
 start_Freq=getFreq(getData(),SCAN_FREQ)
 
 print start_Freq
@@ -151,7 +153,7 @@ print start_Freq
 #Get High Frequency (see above)
 setDAC(HighV)
 sleep(1)
-#pause=raw_input("wait")
+pause=raw_input("wait")
 end_Freq=getFreq(getData(),SCAN_FREQ)
 print end_Freq
 
@@ -160,10 +162,14 @@ spectrum=cycleData(LowV, HighV, numVolts)
 
 # generate linear frequency space for plotting spectrum (assumption)
 freq=np.linspace(start_Freq,end_Freq,numVolts)
-subplot(3,1,3)
-plot(freq,spectrum)
+
+plotData(freq,spectrum)
 setDAC(0) # return Freq. Gen. to starting value
 
+save_data=raw_input("Save (Y/N)")
+if save_data in ("Y","y"):
+    data_out=np.column_stack((freq[:,np.newaxis],spectrum[:,np.newaxis]))
+    np.savetxt('test.out', data_out, delimiter=',')
 #close connection to Labjack If there is an error, be sure to 
 #type d.close() into console to get communication to work next time
 # you run. Important on Mac.
